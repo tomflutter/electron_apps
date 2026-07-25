@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Signage Player</title>
+<script src="https://cdn.jsdelivr.net/npm/pusher-js@8.4.0/dist/web/pusher.min.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{width:100vw;height:100vh;background:#000;overflow:hidden;font-family:'Segoe UI',sans-serif;}
+  #stage{position:relative;width:100%;height:100%;}
+  #stage img, #stage video, #stage iframe{width:100%;height:100%;object-fit:contain;border:0;display:block;background:#000;}
+  #overlay{
+    position:fixed;inset:0;background:#0A0B0E;color:#EDEAE1;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:14px;z-index:20;transition:opacity .5s ease;
+  }
+  #overlay h1{font-family:Georgia,serif;font-weight:600;color:#E8C77E;font-size:28px;letter-spacing:.5px;}
+  #overlay p{font-family:monospace;font-size:12px;color:#8B8D97;letter-spacing:1px;}
+  .spinner{width:34px;height:34px;border:2px solid #26282f;border-top-color:#C6A15B;border-radius:50%;animation:spin 1s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  #statusBar{
+    position:fixed;bottom:0;left:0;right:0;padding:6px 14px;font-family:monospace;font-size:11px;
+    color:#8B8D97;background:rgba(0,0,0,.55);display:flex;justify-content:space-between;z-index:30;
+    opacity:0;transition:opacity .3s;
+  }
+  body:hover #statusBar{opacity:1;}
+  .dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px;}
+  .dot.on{background:#3E7A67;box-shadow:0 0 6px #3E7A67;}
+  .dot.off{background:#9B4B45;}
+</style>
+</head>
+<body>
+  <div id="overlay">
+    <div class="spinner"></div>
+    <h1 id="ovTitle">Signage Player</h1>
+    <p id="ovStatus">Menghubungkan ke server…</p>
+  </div>
+  <div id="stage"></div>
+  <div id="statusBar">
+    <span><span class="dot" id="connDot"></span><span id="connLabel">menghubungkan…</span></span>
+    <span id="deviceLabel">DEVICE_ID belum diset</span>
+  </div>
+
+<script>
+/* =====================================================================
+   Signage Device Client (simulator web / dibungkus Electron untuk kios).
+
+   Cara pakai:
+   1. Buat perangkat di dashboard admin -> salin device_id & device_key.
+   2. Buka index.html?device_id=<uuid>&device_key=<key>&api=<api_base>
+      atau isi manual di bawah (untuk kios Electron, baca dari config.json).
+   3. Client akan:
+      - kirim heartbeat tiap 10 detik (menandakan online di dashboard)
+      - subscribe channel privat WebSocket device.{id} untuk menerima
+        push konten / reload playlist secara realtime
+      - auto-reconnect dengan exponential backoff bila koneksi putus
+===================================================================== */
+
+const params = new URLSearchParams(location.search);
+const CONFIG = {
+  API_BASE:    params.get('api')        || 'http://localhost:8000/api',
+  DEVICE_ID:   params.get('device_id')  || 'DEMO-DEVICE-ID',
+  DEVICE_KEY:  params.get('device_key') || 'demo-key',
+  REVERB_HOST: params.get('ws_host')    || 'localhost',
+  REVERB_PORT: params.get('ws_port')    || 8080,
+  REVERB_KEY:  params.get('ws_key')     || 'signage-key',
+  HEARTBEAT_MS: 10000,
+};
+
+document.getElementById('deviceLabel').textContent = 'DEVICE ' + CONFIG.DEVICE_ID.slice(0,8);
+
+let playlist = [];
+let currentIndex = 0;
+let slideTimer = null;
+let reconnectAttempt = 0;
+
+/* ---------------------- Heartbeat ---------------------- */
+async function sendHeartbeat(){
+  try{
+    const res = await fetch(`${CONFIG.API_BASE}/devices/${CONFIG.DEVICE_ID}/heartbeat`, {
+      method: 'POST',
+      headers: { 'X-Device-Key': CONFIG.DEVICE_KEY }
+    });
+    if(!res.ok) throw new Error('heartbeat failed');
+    setConn(true);
+  }catch(e){
+    setConn(false);
+  }
+}
+setInterval(sendHeartbeat, CONFIG.HEARTBEAT_MS);
+sendHeartbeat();
+
+function setConn(ok){
+  document.getElementById('connDot').className = 'dot ' + (ok ? 'on':'off');
+  document.getElementById('connLabel').textContent = ok ? 'tersambung' : 'terputus — mencoba lagi';
+}
+
+/* ---------------------- Load playlist awal ---------------------- */
+async function loadPlaylist(){
+  try{
+    const res = await fetch(`${CONFIG.API_BASE}/devices/${CONFIG.DEVICE_ID}/playlist`);
+    const data = await res.json();
+    playlist = (data?.items || []).map(i => i.content);
+    if(playlist.length){
+      hideOverlay();
+      currentIndex = 0;
+      playCurrent();
+    }else{
+      showOverlay('Menunggu Konten', 'Belum ada playlist untuk perangkat ini. Kelola dari dashboard admin.');
+    }
+  }catch(e){
+    showOverlay('Mode Offline', 'Gagal memuat playlist. Player akan mencoba lagi otomatis.');
+  }
+}
+
+/* ---------------------- Render konten ---------------------- */
+function playCurrent(){
+  if(!playlist.length) return;
+  const content = playlist[currentIndex];
+  renderContent(content);
+  clearTimeout(slideTimer);
+  slideTimer = setTimeout(next, (content.durasi_detik || 10) * 1000);
+}
+function next(){ currentIndex = (currentIndex + 1) % playlist.length; playCurrent(); }
+
+function renderContent(content){
+  const stage = document.getElementById('stage');
+  stage.innerHTML = '';
+  let el;
+  switch(content.tipe){
+    case 'image':
+      el = document.createElement('img'); el.src = content.payload_url; break;
+    case 'video':
+      el = document.createElement('video'); el.src = content.payload_url;
+      el.autoplay = true; el.muted = true; el.loop = false; break;
+    case 'youtube':
+    case 'url':
+    case 'html':
+      el = document.createElement('iframe'); el.src = content.payload_url; el.allow='autoplay'; break;
+    default:
+      el = document.createElement('div'); el.textContent = 'Tipe konten tidak dikenali';
+  }
+  stage.appendChild(el);
+}
+
+function showOverlay(title, status){
+  document.getElementById('ovTitle').textContent = title;
+  document.getElementById('ovStatus').textContent = status;
+  document.getElementById('overlay').style.opacity = '1';
+  document.getElementById('overlay').style.display = 'flex';
+}
+function hideOverlay(){
+  document.getElementById('overlay').style.opacity = '0';
+  setTimeout(()=>{ document.getElementById('overlay').style.display='none'; }, 500);
+}
+
+/* ---------------------- Push konten / command realtime ---------------------- */
+function pushSingleContent(content){
+  // sisipkan konten yang di-push admin sebagai tampilan segera (di luar antrean playlist)
+  clearTimeout(slideTimer);
+  renderContent(content);
+  slideTimer = setTimeout(()=>{ playCurrent(); }, (content.durasi_detik || 10) * 1000);
+}
+
+/* ---------------------- WebSocket + reconnection ---------------------- */
+function connectRealtime(){
+  const pusher = new Pusher(CONFIG.REVERB_KEY, {
+    wsHost: CONFIG.REVERB_HOST,
+    wsPort: CONFIG.REVERB_PORT,
+    forceTLS: false,
+    enabledTransports: ['ws','wss'],
+    disableStats: true,
+    activityTimeout: 8000,
+  });
+
+  pusher.connection.bind('connected', ()=>{ reconnectAttempt = 0; setConn(true); });
+
+  pusher.connection.bind('unavailable', scheduleReconnect);
+  pusher.connection.bind('failed', scheduleReconnect);
+  pusher.connection.bind('disconnected', scheduleReconnect);
+
+  const channel = pusher.subscribe(`device.${CONFIG.DEVICE_ID}`);
+  channel.bind('command.pushed', (payload)=>{
+    if(payload.command === 'push_content' && payload.content){
+      pushSingleContent(payload.content);
+    }else if(payload.command === 'reload_playlist' || payload.command === 'reload'){
+      loadPlaylist();
+    }else if(payload.command === 'clear'){
+      document.getElementById('stage').innerHTML = '';
+    }
+    // konfirmasi eksekusi perintah ke server
+    fetch(`${CONFIG.API_BASE}/commands/${payload.command_id}/ack`, {
+      method:'POST', headers:{'X-Device-Key': CONFIG.DEVICE_KEY}
+    }).catch(()=>{});
+  });
+}
+
+function scheduleReconnect(){
+  setConn(false);
+  reconnectAttempt++;
+  const delay = Math.min(30000, 1000 * Math.pow(2, reconnectAttempt)); // exponential backoff, cap 30s
+  showOverlay('Menghubungkan Ulang', `Percobaan ke-${reconnectAttempt} dalam ${Math.round(delay/1000)} detik…`);
+  setTimeout(()=>{
+    if(playlist.length) hideOverlay();
+    connectRealtime();
+    loadPlaylist();
+  }, delay);
+}
+
+/* ---------------------- Boot ---------------------- */
+loadPlaylist();
+connectRealtime();
+</script>
+</body>
+</html>

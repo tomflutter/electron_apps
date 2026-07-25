@@ -1,0 +1,8 @@
+{
+  "device_id": "359f7700-3b4d-43bb-b193-075f49d11b55",
+  "device_key": "495a50ba451eaad3712ada8d539384f1da55f4dc658bb890",
+  "api": "https://signate.votm.biz.id/api",
+  "ws_host": "signate.votm.biz.id",
+  "ws_port": "8080",
+  "ws_key": "signage-key"
+}

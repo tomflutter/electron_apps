@@ -1,0 +1,8 @@
+{
+  "device_id": "isi-uuid-device-dari-dashboard",
+  "device_key": "isi-device-key-dari-dashboard",
+  "api": "http://localhost:8000/api",
+  "ws_host": "localhost",
+  "ws_port": "8080",
+  "ws_key": "signage-key"
+}

@@ -11,7 +11,7 @@
 ## ✨ Final Result
 
 <p align="center">
-Modern Digital Signage Management System built with <b>Laravel</b> & <b>Flutter</b>.
+Digital Signage Management System built with <b>Laravel</b> & <b>Electron</b>.
 </p>
 
 <table>

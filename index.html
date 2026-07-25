@@ -42,19 +42,6 @@
   </div>
 
 <script>
-/* =====================================================================
-   Signage Device Client (simulator web / dibungkus Electron untuk kios).
-
-   Cara pakai:
-   1. Buat perangkat di dashboard admin -> salin device_id & device_key.
-   2. Buka index.html?device_id=<uuid>&device_key=<key>&api=<api_base>
-      atau isi manual di bawah (untuk kios Electron, baca dari config.json).
-   3. Client akan:
-      - kirim heartbeat tiap 10 detik (menandakan online di dashboard)
-      - subscribe channel privat WebSocket device.{id} untuk menerima
-        push konten / reload playlist secara realtime
-      - auto-reconnect dengan exponential backoff bila koneksi putus
-===================================================================== */
 
 const params = new URLSearchParams(location.search);
 const CONFIG = {

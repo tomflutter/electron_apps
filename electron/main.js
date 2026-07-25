@@ -19,10 +19,10 @@ function loadConfig() {
   const defaults = {
     device_id: 'DEMO-DEVICE-ID',
     device_key: 'demo-key',
-    api: 'https://signate.votm.biz.id/api',
-    ws_host: 'signate.votm.biz.id',
+    api: 'https://pastidighosting.com/api',
+    ws_host: 'pastidighosting.com',
     ws_port: '8080',
-    ws_key: 'signage-key',
+    ws_key: 'ghosting-key',
   };
   try {
     return { ...defaults, ...JSON.parse(fs.readFileSync(configPath, 'utf-8')) };
@@ -32,7 +32,7 @@ function loadConfig() {
 }
 
 // Halaman player yang di-hosting di serv00 (subdomain electron.votm.biz.id)
-const PLAYER_URL = 'https://electron.votm.biz.id/';
+const PLAYER_URL = 'https://ghostingpelamar.com/';
 
 function createWindow() {
   const cfg = loadConfig();

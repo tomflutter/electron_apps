@@ -1,10 +1,20 @@
+## ❤️ Support This Project
+
+<p align="center">
+If this project helps you, consider supporting its development or downloading the latest app.
+</p>
+
 <p align="center">
   <a href="https://tomdemo-2daa7.web.app/">
-    <img src="https://img.shields.io/badge/⬇️_Download_App-181717?style=for-the-badge&logo=github&logoColor=white" />
+    <img src="https://img.shields.io/badge/⬇️_Download_App-181717?style=for-the-badge&logo=flutter&logoColor=white" alt="Download App"/>
   </a>
 
-  <a href="https://github.com/sponsors/tomflutter">
-    <img src="https://img.shields.io/badge/❤️_Donate-F16061?style=for-the-badge&logo=ko-fi&logoColor=white" />
+  <a href="https://www.nihbuatjajan.com/tomflutter">
+    <img src="https://img.shields.io/badge/☕_Nih_Buat_Jajan-00C853?style=for-the-badge&logo=buymeacoffee&logoColor=white" alt="Support via Nih Buat Jajan"/>
+  </a>
+
+  <a href="https://paypal.me/tomyradea4">
+    <img src="https://img.shields.io/badge/💙_PayPal-00457C?style=for-the-badge&logo=paypal&logoColor=white" alt="Donate via PayPal"/>
   </a>
 </p>
 
